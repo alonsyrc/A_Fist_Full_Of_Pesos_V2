@@ -24,6 +24,7 @@ class A_FIST_FULL_OF_PESOS_API ARunnerCharacter : public ACharacter
 	GENERATED_BODY() // Macro que genera el código estándar necesario para las clases de Unreal Engine.
 	UUserWidget* PauseWidget;
 	UUserWidget* Widget;
+	UUserWidget* GameOverWidget;
 
 		// Propiedades visibles en cualquier lugar
 	UPROPERTY(VisibleAnywhere)
@@ -86,6 +87,18 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget2")
 		TSubclassOf<UUserWidget> BP_UI_PauseWidget_Ref;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget3")
+		UButton* GameOverRestartButton;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget3")
+		UButton* GameOverMainMenuButton;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget3")
+		UButton* GameOverQuitButton;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget3")
+		TSubclassOf<UUserWidget> BP_UI_GameOverWidget_Ref;
 	// Contador de monedas
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player")
 		int Coins;
@@ -109,6 +122,8 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION()
+	void ResetMeGame();
+	UFUNCTION()
 	void ResumeGame();
 	UFUNCTION()
 	void ReturnToMainMenu();
@@ -120,6 +135,10 @@ public:
 	void AddPauseUI();
 
 	void RemovePauseUI();
+
+	void AddGameOverUI();
+
+	void RemoveGameOverUI();
 
 	// Obtiene el componente de la cámara lateral.
 	class UCameraComponent* GetSideViewCameraComponent() const

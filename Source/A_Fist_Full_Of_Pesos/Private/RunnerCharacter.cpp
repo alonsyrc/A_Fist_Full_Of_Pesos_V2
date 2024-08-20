@@ -65,6 +65,24 @@ void ARunnerCharacter::BeginPlay()
             QuitButton->OnClicked.AddDynamic(this, &ARunnerCharacter::QuitGame);
     }
 
+    GameOverWidget = CreateWidget<UUserWidget>(GetWorld(), BP_UI_GameOverWidget_Ref);
+    AddGameOverUI();
+    if (GameOverWidget)
+    {
+        // Encuentra los botones en el widget
+        GameOverRestartButton = Cast<UButton>(GameOverWidget->GetWidgetFromName("GameOverRestartButton"));
+        GameOverMainMenuButton = Cast<UButton>(GameOverWidget->GetWidgetFromName("GameOverMainMenuButton"));
+        GameOverQuitButton = Cast<UButton>(GameOverWidget->GetWidgetFromName("GameOverQuitButton"));
+
+        // Verifica si los botones fueron encontrados
+        if (GameOverRestartButton)
+            ResumeButton->OnClicked.AddDynamic(this, &ARunnerCharacter::ResetMeGame);
+        if (GameOverMainMenuButton)
+            MainMenuButton->OnClicked.AddDynamic(this, &ARunnerCharacter::ReturnToMainMenu);
+        if (GameOverQuitButton)
+            QuitButton->OnClicked.AddDynamic(this, &ARunnerCharacter::QuitGame);
+    }
+
     Widget = CreateWidget<UUserWidget>(GetWorld(), BP_UI_Ref);
     if (Widget)
     {
@@ -77,6 +95,7 @@ void ARunnerCharacter::BeginPlay()
     }
 
     RemovePauseUI(); 
+    RemoveGameOverUI();
     AddRuntimeUI();
     // Añade un evento de superposición.
     GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &ARunnerCharacter::OnOverlapBegin);
@@ -114,14 +133,31 @@ void ARunnerCharacter::RemovePauseUI()
         PauseWidget->RemoveFromParent();
 }
 
+void ARunnerCharacter::AddGameOverUI()
+{// Muestra el widget de pausa
+    if (GameOverWidget)
+        GameOverWidget->AddToViewport();
+    RemovePauseUI();
+    RemoveRuntimeUI();
+}
+void ARunnerCharacter::RemoveGameOverUI()
+{ // Muestra el widget de pausa
+    if (GameOverWidget)
+        GameOverWidget->RemoveFromParent();
+}
+
 void ARunnerCharacter::Tick(float DeltaTime)
 {// Llamado cada cuadro
     Super::Tick(DeltaTime);
     UpdateDistanceTraveled(DeltaTime);// Actualiza la distancia recorrida
-    if (GetActorLocation().Z <= -20.0f)// Comprueba si la posición Z del personaje es -200
-        PlaySound(RestartSound);  // Reproduce el sonido de reinicio      
-    if (GetActorLocation().Z <= -200.0f)
-        DelayedRestartLevel(); // Llama a la función RestartLevel
+    //if (GetActorLocation().Z <= -20.0f)// Comprueba si la posición Z del personaje es -200
+    //    PlaySound(RestartSound);  // Reproduce el sonido de reinicio      
+    if (GetActorLocation().Z <= -200.0f && GetActorLocation().Z >= -300.0f)
+    {
+        PlaySound(RestartSound);
+        AddPauseUI();
+    }
+        //DelayedRestartLevel(); // Llama a la función RestartLevel
 }
 
 // Llamado para vincular funcionalidades a la entrada del jugador
@@ -137,16 +173,20 @@ void ARunnerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Completed, this, &ARunnerCharacter::PauseGame);// Pausar
     }
 }
+void ARunnerCharacter::ResetMeGame()
+{
+    DelayedRestartLevel();
+}
 
 void ARunnerCharacter::ReturnToMainMenu()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Main Menu Button")));
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Main Menu Button")));
     UGameplayStatics::OpenLevel(this, FName("MainMenuMap")); // Carga el mapa MainMenuMap
 }
 
 void ARunnerCharacter::QuitGame()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Quit Button")));
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Quit Button")));
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (PlayerController)
     {
@@ -156,7 +196,7 @@ void ARunnerCharacter::QuitGame()
 
 void ARunnerCharacter::ResumeGame()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("ResumeButton")));
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("ResumeButton")));
     RemovePauseUI();
     AddRuntimeUI();
     bIsPaused = false;
@@ -189,7 +229,7 @@ void ARunnerCharacter::PauseGame(const FInputActionValue& Value)
     {
         ResumeGame();
     }
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Out Pausado: %s"), bIsPaused ? TEXT("true") : TEXT("false")));
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Out Pausado: %s"), bIsPaused ? TEXT("true") : TEXT("false")));
 }
 
 // Función de movimiento
@@ -217,11 +257,11 @@ void ARunnerCharacter::DelayedRestartLevel()
     GetWorldTimerManager().SetTimer(UnusedHandle, this, &ARunnerCharacter::RestartLevelDelayed, 2.0f, false);
 }
 
-void ARunnerCharacter::RestartLevel()
-{
-    PlaySound(RestartSound);
-    UGameplayStatics::OpenLevel(this, FName(*GetWorld()->GetName())); // Reinicia el nivel actual.
-}
+//void ARunnerCharacter::RestartLevel()
+//{
+//    PlaySound(RestartSound);
+//    UGameplayStatics::OpenLevel(this, FName(*GetWorld()->GetName())); // Reinicia el nivel actual.
+//}
 
 // Función que reinicia el nivel después del delay
 void ARunnerCharacter::RestartLevelDelayed()
@@ -238,11 +278,13 @@ void ARunnerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, 
         ASpikes* Spike = Cast<ASpikes>(OtherActor); // Intenta convertir OtherActor a ASpikes.
         if (WallSpike || Spike) // Si colisiona con un spike o una pared con espinas
         {
+            PlaySound(RestartSound);   // Reproduce el sonido de coin
             GetMesh()->Deactivate(); // Desactiva el modelo del personaje.
             GetMesh()->SetVisibility(false); // Hace invisible el modelo del personaje.
             CanMove = false; // Deshabilita el movimiento.
             FTimerHandle UnusedHandle; // Establece un temporizador para reiniciar el nivel después de 2 segundos.
-            GetWorldTimerManager().SetTimer(UnusedHandle, this, &ARunnerCharacter::RestartLevel, 2.0f, false);
+            GetWorldTimerManager().SetTimer(UnusedHandle, this, &ARunnerCharacter::AddPauseUI, 1.0f, false);
+            //GetWorldTimerManager().SetTimer(UnusedHandle, this, &ARunnerCharacter::DelayedRestartLevel, 1.0f, false);
         }
     }
 }
